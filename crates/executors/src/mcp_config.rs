@@ -13,8 +13,77 @@ use crate::executors::{CodingAgent, ExecutorError};
 
 static DEFAULT_MCP_JSON: &str = include_str!("../default_mcp.json");
 pub static PRECONFIGURED_MCP_SERVERS: LazyLock<Value> = LazyLock::new(|| {
-    serde_json::from_str::<Value>(DEFAULT_MCP_JSON).expect("Failed to parse default MCP JSON")
+    let mut servers =
+        serde_json::from_str::<Value>(DEFAULT_MCP_JSON).expect("Failed to parse default MCP JSON");
+
+    if let Some(env_server) = env_provisioned_server() {
+        merge_env_server(&mut servers, env_server);
+    }
+
+    servers
 });
+
+struct EnvMcpServer {
+    id: String,
+    server: Value,
+    meta: Value,
+}
+
+fn env_provisioned_server() -> Option<EnvMcpServer> {
+    let url = std::env::var("VK_MCP_SERVER_URL").ok()?;
+
+    let token = std::env::var("VK_MCP_TOKEN").ok();
+    let client_name =
+        std::env::var("VK_MCP_CLIENT_NAME").unwrap_or_else(|_| "vibe-kanban-local".to_string());
+    let instance_id =
+        std::env::var("VK_MCP_INSTANCE_ID").unwrap_or_else(|_| "local-dev".to_string());
+    let id = std::env::var("VK_MCP_SERVER_NAME").unwrap_or_else(|_| "external_mcp".to_string());
+    let description = std::env::var("VK_MCP_SERVER_DESCRIPTION")
+        .unwrap_or_else(|_| "External MCP server configured via environment variables".to_string());
+
+    let mut server = Map::from_iter([
+        ("type".to_string(), Value::String("http".to_string())),
+        ("url".to_string(), Value::String(url)),
+    ]);
+
+    if let Some(token) = token {
+        server.insert(
+            "headers".to_string(),
+            Value::Object(Map::from_iter([(
+                "Authorization".to_string(),
+                Value::String(format!("Bearer {}", token)),
+            )])),
+        );
+    }
+
+    let meta = serde_json::json!({
+        "name": client_name,
+        "description": description,
+        "instance_id": instance_id,
+    });
+
+    Some(EnvMcpServer {
+        id,
+        server: Value::Object(server),
+        meta,
+    })
+}
+
+fn merge_env_server(target: &mut Value, env_server: EnvMcpServer) {
+    let Some(target_map) = target.as_object_mut() else {
+        return;
+    };
+
+    target_map.insert(env_server.id.clone(), env_server.server);
+
+    let meta_entry = target_map
+        .entry("meta".to_string())
+        .or_insert_with(|| Value::Object(Map::new()));
+
+    if let Some(meta_map) = meta_entry.as_object_mut() {
+        meta_map.insert(env_server.id, env_server.meta);
+    }
+}
 
 #[derive(Debug, Clone, Serialize, Deserialize, TS)]
 pub struct McpConfig {

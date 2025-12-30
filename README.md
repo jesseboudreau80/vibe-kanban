@@ -81,6 +81,37 @@ pnpm run dev
 
 This will start the backend. A blank DB will be copied from the `dev_assets_seed` folder.
 
+### Local development with MCP integration (macOS/Linux)
+
+1. Ensure the local tooling from the prerequisites is installed (including `cargo-watch` via `cargo install cargo-watch`).
+
+2. Copy the sample environment file and customise it for your setup:
+
+   ```bash
+   cp .env.example .env.local
+   ```
+
+   - `FRONTEND_PORT` / `BACKEND_PORT` / `HOST` control local networking
+   - `VK_MCP_SERVER_URL`, `VK_MCP_TOKEN`, `VK_MCP_CLIENT_NAME`, `VK_MCP_INSTANCE_ID`, `VK_MCP_SERVER_NAME`, and `VK_MCP_SERVER_DESCRIPTION` let you pre-provision a remote MCP server for the built-in coding agents. Leave the token as a placeholder—no secrets should be committed.
+
+3. Install dependencies with the workspace package manager:
+
+   ```bash
+   pnpm install
+   ```
+
+4. Start the full stack (Rust backend + Vite frontend) with a single command:
+
+   ```bash
+   pnpm run start:local
+   ```
+
+   The helper script sources `.env.local` (or `.env`), installs dependencies on first run, allocates free dev ports, and copies seeded assets and the local SQLite DB into `dev_assets/`. The frontend will be available on `http://localhost:<FRONTEND_PORT>` and the backend on `http://localhost:<BACKEND_PORT>`.
+
+5. Connecting your MCP server
+
+   When `VK_MCP_SERVER_URL` is set, the backend adds it to the pre-configured MCP server list surfaced in **Settings → MCP Servers**, including the optional token header and client/instance identifiers you provide. This avoids hand-editing JSON in the UI; you only need to toggle the MCP agent profile and click **Save**.
+
 ### Building the frontend
 
 To build just the frontend:

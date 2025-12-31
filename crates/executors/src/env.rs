@@ -12,9 +12,15 @@ pub struct ExecutionEnv {
 
 impl ExecutionEnv {
     pub fn new() -> Self {
-        Self {
-            vars: HashMap::new(),
+        let mut vars = HashMap::new();
+        
+        // Inherit PATH from parent process so executors can find binaries
+        // like cursor-agent installed in ~/.local/bin
+        if let Ok(path) = std::env::var("PATH") {
+            vars.insert("PATH".to_string(), path);
         }
+        
+        Self { vars }
     }
 
     /// Insert an environment variable
